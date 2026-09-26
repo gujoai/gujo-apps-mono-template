@@ -75,6 +75,8 @@ flowchart TB
 
 각 명령의 자세한 동작은 `swift run repo help brick` 이, 템플릿의 새 판을 받는 흐름은 `swift run repo help template` 이 설명합니다.
 
+템플릿으로 만들지 않고 이미 운영하던 저장소에 템플릿을 처음 들일 때는, 템플릿 checkout 에서 `swift run repo template adopt <저장소 경로> --dry-run` 으로 바뀔 경로를 먼저 보고 `--dry-run` 없이 들입니다. 그다음 들인 저장소에서 `swift run repo doctor` 로 확인하고 커밋합니다. 규칙 문서에 있던 기존 내용은 주인 절로 옮겨지므로, 저장소 주인이 템플릿 구역과 겹치는 내용을 정리합니다.
+
 ## 경계
 
 - **템플릿 관리 영역과 저장소 주인 영역:** 템플릿이 관리하는 경로는 `template.json` 의 `managedPaths` 와 `managedBlocks` 가 정하며, 이 파일이 정본입니다. 관리 영역은 템플릿 업데이트 때 교체되고, 그 밖의 파일과 템플릿 구역 표시 밖의 글은 업데이트가 건드리지 않습니다.
@@ -110,9 +112,9 @@ flowchart TB
 
 ### 점검 상태
 
-- `swift run repo doctor` 가 확인하는 것: 컨텍스트 파일(`AGENTS.md`, `CLAUDE.md`)이 루트에만 있는지, 이 문서의 필수 제목, `README.md`·`ARCHITECTURE.md`·`AGENTS.md` 의 상대 링크, 템플릿 구역 표시의 짝, 앱마다 필수 파일과 VERSION 형식, `tenants` 의 이름 형식, `bricks.lock` 과 `bricks/` 가 일치하는지. 블록 앱의 필수 파일은 경고로만 알립니다.
+- `swift run repo doctor` 가 확인하는 것: git 이 보는 파일 가운데 컨텍스트 파일(`AGENTS.md`, `CLAUDE.md`)이 루트에만 있는지, 이 문서의 필수 제목, `README.md`·`ARCHITECTURE.md`·`AGENTS.md` 의 상대 링크, 템플릿 구역 표시의 짝, 앱마다 필수 파일과 VERSION 형식, `apps/`·`packages/` 의 path 의존이 모두 있는 `packages/<이름>` 을 가리키는지(앱끼리 의존하거나 주인 앱이 블록에 의존하면 FAIL), `tenants` 의 이름 형식, `bricks.lock` 과 `bricks/` 가 일치하는지. 블록 앱의 필수 파일은 경고로만 알립니다.
 - `swift run repo lint` 가 확인하는 것: 주인 앱의 Swift 코드 서식과 필수 파일. 블록은 보지 않습니다.
-- 사람이 확인해야 하는 것: 앱끼리 import 하지 않는지, 주인 앱이 블록에 의존하지 않는지, 로직이 Core 에만 있는지, GUI 로 되는 일이 CLI 로도 되는지, 새 동작에 Core 테스트가 있는지, 비밀이 커밋되지 않았는지, 외부 패키지에 결정 기록이 있는지, 한 내용이 한 곳에만 있는지, 한국어 문장이 fluent-korean 을 따르는지, 관리 영역과 블록을 직접 고치지 않았는지(확인 방법은 `swift run repo help template` 과 `swift run repo help brick`).
+- 사람이 확인해야 하는 것: 로직이 Core 에만 있는지, GUI 로 되는 일이 CLI 로도 되는지, 새 동작에 Core 테스트가 있는지, 비밀이 커밋되지 않았는지, 외부 패키지에 결정 기록이 있는지, 한 내용이 한 곳에만 있는지, 한국어 문장이 fluent-korean 을 따르는지, 관리 영역과 블록을 직접 고치지 않았는지(확인 방법은 `swift run repo help template` 과 `swift run repo help brick`).
 
 ## 참고
 
