@@ -80,6 +80,14 @@ struct DocumentChecksTests {
         #expect(DocumentChecks.architectureCheck(repository).status == .fail)
     }
 
+    @Test func missingReadmeOnlyWarns() throws {
+        let repository = try makeRepository()
+        defer { try? FileManager.default.removeItem(at: repository.root) }
+        try FileManager.default.removeItem(at: repository.root.appending(path: "README.md"))
+
+        #expect(DocumentChecks.linkCheck(repository).status == .warn)
+    }
+
     @Test func missingArchitectureFails() throws {
         let repository = try makeRepository()
         defer { try? FileManager.default.removeItem(at: repository.root) }

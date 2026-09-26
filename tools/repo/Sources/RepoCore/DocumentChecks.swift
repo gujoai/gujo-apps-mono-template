@@ -50,11 +50,14 @@ public enum DocumentChecks {
         return DoctorCheck(name: architectureFile, status: .ok, detail: "필수 제목 \(architectureHeadings.count)개")
     }
 
+    /// Broken relative links fail. A missing document only warns: README.md belongs to the owner, and a
+    /// missing ARCHITECTURE.md or AGENTS.md already fails its own check.
     static func linkCheck(_ repository: Repository) -> DoctorCheck {
         var broken: [String] = []
+        var missing: [String] = []
         for document in linkedDocuments {
             guard let text = read(document, in: repository) else {
-                broken.append("\(document) 없음")
+                missing.append(document)
                 continue
             }
             broken += brokenLinks(in: text, relativeTo: repository.root).map { "\(document) → \($0)" }
@@ -64,6 +67,13 @@ public enum DocumentChecks {
                 name: "doc-links",
                 status: .fail,
                 detail: "가리키는 파일이 없는 상대 링크: \(broken.joined(separator: ", "))"
+            )
+        }
+        guard missing.isEmpty else {
+            return DoctorCheck(
+                name: "doc-links",
+                status: .warn,
+                detail: "\(missing.joined(separator: ", ")) 가 없어 상대 링크를 확인하지 않았습니다."
             )
         }
         return DoctorCheck(
