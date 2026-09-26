@@ -94,6 +94,18 @@ public enum AppStructure {
         return plist
     }
 
+    /// The GUI product that `run` and `bundle` use: `CFBundleExecutable` in `Packaging/Info.plist` when it is
+    /// set, otherwise `<Name>App`. Apps made from the template write `<Name>App` there, so both agree.
+    public static func executableProduct(appDirectory: URL, slug: String) -> String {
+        let plist = try? readInfoPlist(appDirectory: appDirectory)
+        if let name = plist?["CFBundleExecutable"] as? String,
+            !name.trimmingCharacters(in: .whitespaces).isEmpty
+        {
+            return name
+        }
+        return "\(AppNames.pascalCase(slug))App"
+    }
+
     public static func info(_ app: AppRef, in repository: Repository, origin: String? = nil) -> AppInfo {
         let directory = repository.directory(of: app)
         let plist = try? readInfoPlist(appDirectory: directory)

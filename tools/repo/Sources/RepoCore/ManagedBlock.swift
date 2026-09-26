@@ -30,6 +30,14 @@ public enum ManagedBlock {
         return start..<end
     }
 
+    /// Whether any line of `text` is a begin or end marker. `innerRange` checks that they pair up.
+    public static func hasMarkers(_ text: String) -> Bool {
+        text.split(whereSeparator: \.isNewline).contains { line in
+            let trimmed = line.trimmingCharacters(in: .whitespaces)
+            return trimmed == beginMarker || trimmed == endMarker
+        }
+    }
+
     /// `current` with its template block replaced by the template block of `template`.
     /// Text outside the markers in `current` is kept exactly as it is.
     public static func replacingBlock(in current: String, with template: String, file: String) throws -> String {

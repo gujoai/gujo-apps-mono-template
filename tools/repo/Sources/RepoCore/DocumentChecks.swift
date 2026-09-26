@@ -4,9 +4,8 @@ import Foundation
 /// is in the check status section of ARCHITECTURE.md.
 public enum DocumentChecks {
     static let contextFileNames: Set<String> = ["agents.md", "claude.md"]
-    /// Directories whose context files are not rules for this repository: build output, git data, and the app template.
-    static let skippedDirectories: Set<String> = [".build", ".git"]
-    static let skippedRootDirectories: Set<String> = ["templates"]
+    /// The app template may hold context files of its own; they are not rules for this repository.
+    static let skippedRootDirectory = "templates"
     static let linkedDocuments = ["README.md", "ARCHITECTURE.md", "AGENTS.md"]
     static let architectureFile = "ARCHITECTURE.md"
     static let architectureHeadings = [
@@ -103,27 +102,39 @@ public enum DocumentChecks {
         )
     }
 
-    /// Paths, relative to `root`, of AGENTS.md and CLAUDE.md files below the root.
+    /// Paths, relative to `root`, of AGENTS.md and CLAUDE.md files below the root. In a git work tree the
+    /// files git sees are checked (tracked, or untracked and not ignored), so ignored folders such as
+    /// `.worktrees/` do not count. Elsewhere the folders are walked, skipping hidden ones.
     static func misplacedContextFiles(in root: URL) -> [String] {
-        let fileManager = FileManager.default
-        guard let enumerator = fileManager.enumerator(atPath: root.path) else {
+        if Git.isWorkTree(root),
+            let listed = try? Git.output(["ls-files", "-z", "--cached", "--others", "--exclude-standard"], in: root)
+        {
+            return Array(Set(listed.split(separator: "\0").map(String.init).filter(isMisplacedContextFile))).sorted()
+        }
+        guard let enumerator = FileManager.default.enumerator(atPath: root.path) else {
             return []
         }
         var misplaced: [String] = []
         while let path = enumerator.nextObject() as? String {
-            let components = path.split(separator: "/").map(String.init)
-            guard let name = components.last else {
-                continue
-            }
-            if skippedDirectories.contains(name) || (components.count == 1 && skippedRootDirectories.contains(name)) {
+            let components = path.split(separator: "/")
+            if let name = components.last,
+                name.hasPrefix(".")
+                    || (components.count == 1 && name == skippedRootDirectory)
+            {
                 enumerator.skipDescendants()
-                continue
-            }
-            if components.count > 1 && contextFileNames.contains(name.lowercased()) {
+            } else if isMisplacedContextFile(path) {
                 misplaced.append(path)
             }
         }
         return misplaced.sorted()
+    }
+
+    static func isMisplacedContextFile(_ path: String) -> Bool {
+        let components = path.split(separator: "/")
+        guard components.count > 1, let name = components.last, contextFileNames.contains(name.lowercased()) else {
+            return false
+        }
+        return components.first != Substring(skippedRootDirectory)
     }
 
     static func missingHeadings(in text: String, required: [String]) -> [String] {

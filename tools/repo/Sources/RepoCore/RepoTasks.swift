@@ -59,7 +59,8 @@ public struct RepoTasks {
 
     public func run(_ name: String) throws {
         let app = try repository.selectAppRefs([name])[0]
-        try execute(["swift", "run", "--package-path", app.path, "\(AppNames.pascalCase(app.slug))App"])
+        let product = AppStructure.executableProduct(appDirectory: repository.directory(of: app), slug: app.slug)
+        try execute(["swift", "run", "--package-path", app.path, product])
     }
 
     /// Creates the app, then formats it so that import order and line breaks match the new names.
@@ -85,7 +86,7 @@ public struct RepoTasks {
         let selected = try repository.selectAppRefs([name])[0]
         let appDirectory = repository.directory(of: selected)
         let path = selected.path
-        let product = "\(AppNames.pascalCase(selected.slug))App"
+        let product = AppStructure.executableProduct(appDirectory: appDirectory, slug: selected.slug)
         guard let version = AppStructure.readVersion(appDirectory: appDirectory) else {
             throw RepoError.failure("\(path)/VERSION 이 없거나 x.y.z 형식이 아닙니다.")
         }

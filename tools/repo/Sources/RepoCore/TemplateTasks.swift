@@ -36,6 +36,13 @@ public enum TemplateUpdateOutcome: Sendable {
     case applied(TemplatePlan, changedPaths: [String])
 }
 
+public enum TemplateAdoptOutcome: Sendable {
+    /// `--dry-run`: what would change. Nothing was written.
+    case planned(AdoptPlan)
+    /// The template was brought in. `changedPaths` come from `git status --porcelain` in the target.
+    case applied(AdoptPlan, target: URL, changedPaths: [String])
+}
+
 /// `repo template status` and `repo template update`.
 public struct TemplateTasks {
     public let repository: Repository
@@ -115,6 +122,19 @@ public struct TemplateTasks {
             in: repository.root
         )
         return .applied(plan, changedPaths: changed)
+    }
+
+    /// Brings this checkout's template into the repository at `target`, which was not made from it.
+    public func adopt(target: String, bundlePrefix: String?, dryRun: Bool) throws -> TemplateAdoptOutcome {
+        let url =
+            target.hasPrefix("/")
+            ? URL(fileURLWithPath: target, isDirectory: true) : workingDirectory.appending(path: target)
+        let plan = try TemplateAdopter.plan(source: repository, target: url, bundlePrefix: bundlePrefix)
+        if dryRun {
+            return .planned(plan)
+        }
+        try TemplateAdopter.apply(plan, source: repository, target: url)
+        return .applied(plan, target: url.standardizedFileURL, changedPaths: try Git.changedPaths(["."], in: url))
     }
 
     /// `--from` when given, otherwise `templateSource` from repo.json.

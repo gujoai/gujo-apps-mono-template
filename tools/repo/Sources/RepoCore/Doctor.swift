@@ -61,6 +61,7 @@ public enum Doctor {
         checks.append(templateCheck(repository))
         checks.append(contentsOf: DocumentChecks.checks(repository))
         checks.append(contentsOf: appChecks(repository))
+        checks.append(DependencyChecks.check(repository))
         checks.append(contentsOf: BrickChecks.checks(repository))
         return DoctorReport(checks: checks)
     }
