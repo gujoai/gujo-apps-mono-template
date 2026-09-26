@@ -13,7 +13,7 @@ OKF 는 문서 가운데 코드에서 만들 수 있는 부분을 생성 블록�
 - 생성 블록(`okf:derived`)은 주인 앱과 패키지의 README 와 루트 `index.md` 에만 둡니다. `bricks/` 와 `templates/` 는 보지 않습니다.
 - 생성기는 version, deps, used-by, index 네 가지이며, 출력 형식은 첫 구현과 같습니다.
 - `swift run repo okf sync` 가 블록을 다시 만들고, `swift run repo okf check` 와 doctor 의 okf-blocks 는 sync 가 바꿀 파일이나 표시 오류가 있으면 실패합니다. 둘은 같은 생성 코드를 씁니다.
-- 코드 루트에 둘 수 있는 항목은 템플릿이 정하고, doctor 의 root-entries 가 확인합니다. `apps/`, `packages/` 의 폴더 이름은 doctor 의 item-names 와 `repo new` 가 같은 규칙으로 확인합니다.
+- 코드 루트에 둘 수 있는 항목은 템플릿이 정하고, doctor 의 root-entries 가 확인합니다. `apps/`, `packages/` 의 폴더 이름은 doctor 의 item-names 와 `repo new` 가 같은 규칙으로 확인합니다. 날짜 숫자는 6자리 이상 이어진 숫자와, 하이픈으로 나눈 성분 가운데 19xx·20xx 인 것만 날짜로 봅니다.
 
 ## 검토한 대안
 
@@ -25,6 +25,7 @@ OKF 는 문서 가운데 코드에서 만들 수 있는 부분을 생성 블록�
 - **배치 선언(layout):** 배치는 템플릿이 `apps/`, `packages/` 로 정해 둡니다.
 - **사람이 쓴 블록(authored) 관리, 관계 그래프, 실행 기록, staged 점검:** 코드 저장소의 문서 유지에 필요하지 않습니다. `okf:block` 표시는 해석하지 않고 본문으로 남깁니다.
 - **사람용 저장 위치 규칙과 "정확히 4단어" 이름 규칙:** 코드 루트에는 맞지 않습니다.
+- **`7-12` 같은 숫자 짝을 날짜로 보는 규칙:** `ios-17-2`, `base64-2` 같은 정상적인 이름을 막습니다.
 
 ## 결과
 

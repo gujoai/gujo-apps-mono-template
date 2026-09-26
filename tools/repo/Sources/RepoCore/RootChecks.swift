@@ -59,8 +59,9 @@ public enum RootChecks {
         let words = name.split(separator: "-").map(String.init)
         var problems = words.filter(deicticWords.contains).map { "사람과 시점에 따라 뜻이 바뀌는 단어 '\($0)'" }
         problems += words.filter { $0 == kind || $0 == kind + "s" }.map { "종류 단어 '\($0)'" }
-        let datePatterns = [#"\d{6,}"#, #"(?<!\d)(19|20)\d{2}(?!\d)"#, #"(?<!\d)\d{1,4}[-./]\d{1,2}(?!\d)"#]
-        if datePatterns.contains(where: { name.range(of: $0, options: .regularExpression) != nil }) {
+        if name.range(of: #"\d{6,}"#, options: .regularExpression) != nil
+            || words.contains(where: { $0.range(of: #"^(19|20)\d{2}$"#, options: .regularExpression) != nil })
+        {
             problems.append("날짜 숫자")
         }
         return problems

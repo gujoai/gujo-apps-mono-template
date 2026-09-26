@@ -169,14 +169,14 @@ struct RootChecksTests {
         #expect(RootChecks.unexpectedRootEntries(in: target) == ["notes.txt", "swift"])
     }
 
-    @Test(arguments: ["notes", "memo-board", "image-resizer-2", "v2-sync"])
+    @Test(arguments: ["notes", "memo-board", "image-resizer-2", "v2-sync", "ios-17-2", "base64-2", "notes-7-12"])
     func acceptsNames(_ name: String) {
         #expect(RootChecks.itemNameProblems(name, kind: "app").isEmpty)
     }
 
     @Test(arguments: [
         ("Notes", "app"), ("new-notes", "app"), ("notes-tmp", "app"), ("app-tools", "app"), ("notes-apps", "app"),
-        ("shared-package", "package"), ("notes-2024", "app"), ("report-240712", "app"), ("notes-7-12", "app"),
+        ("shared-package", "package"), ("notes-2024", "app"), ("report-240712", "app"), ("sales-1999-report", "app"),
     ])
     func rejectsNames(_ name: String, _ kind: String) {
         #expect(!RootChecks.itemNameProblems(name, kind: kind).isEmpty)
