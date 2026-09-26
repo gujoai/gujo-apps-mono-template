@@ -1,0 +1,100 @@
+import Foundation
+
+public struct AppInfo: Encodable, Equatable, Sendable {
+    public let slug: String
+    public let displayName: String?
+    public let version: String?
+
+    enum CodingKeys: String, CodingKey {
+        case slug
+        case displayName
+        case version
+    }
+
+    public init(slug: String, displayName: String?, version: String?) {
+        self.slug = slug
+        self.displayName = displayName
+        self.version = version
+    }
+
+    // Missing values are written as null so every entry has the same keys.
+    public func encode(to encoder: any Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(slug, forKey: .slug)
+        try container.encode(displayName, forKey: .displayName)
+        try container.encode(version, forKey: .version)
+    }
+}
+
+/// What every app under `apps/` must contain. `doctor` and `lint` share this check.
+public enum AppStructure {
+    public static func check(appDirectory: URL) -> DoctorCheck {
+        let slug = appDirectory.lastPathComponent
+        let fileManager = FileManager.default
+        var problems: [String] = []
+        if !AppNames.isValidSlug(slug) {
+            problems.append("폴더 이름이 slug 형식이 아님")
+        }
+        for file in ["Package.swift", "README.md"]
+        where !fileManager.fileExists(atPath: appDirectory.appending(path: file).path) {
+            problems.append("\(file) 없음")
+        }
+        let versionURL = appDirectory.appending(path: "VERSION")
+        if let text = try? String(contentsOf: versionURL, encoding: .utf8) {
+            let version = text.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !isValidVersion(version) {
+                problems.append("VERSION 형식 오류('\(version)', x.y.z 여야 함)")
+            }
+        } else {
+            problems.append("VERSION 없음")
+        }
+        var isDirectory: ObjCBool = false
+        let testsPath = appDirectory.appending(path: "Tests").path
+        if !fileManager.fileExists(atPath: testsPath, isDirectory: &isDirectory) || !isDirectory.boolValue {
+            problems.append("Tests/ 없음")
+        }
+        let name = "app \(slug)"
+        guard problems.isEmpty else {
+            return DoctorCheck(name: name, status: .fail, detail: problems.joined(separator: ", "))
+        }
+        return DoctorCheck(name: name, status: .ok, detail: "VERSION \(readVersion(appDirectory: appDirectory) ?? "")")
+    }
+
+    /// `x.y.z` with decimal numbers.
+    public static func isValidVersion(_ text: String) -> Bool {
+        SemanticVersion(text) != nil
+    }
+
+    /// The trimmed VERSION value, or nil when it is missing or not `x.y.z`.
+    public static func readVersion(appDirectory: URL) -> String? {
+        guard let text = try? String(contentsOf: appDirectory.appending(path: "VERSION"), encoding: .utf8) else {
+            return nil
+        }
+        let version = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        return isValidVersion(version) ? version : nil
+    }
+
+    public static func infoPlistURL(appDirectory: URL) -> URL {
+        appDirectory.appending(path: "Packaging/Info.plist")
+    }
+
+    public static func readInfoPlist(appDirectory: URL) throws -> [String: Any] {
+        let url = infoPlistURL(appDirectory: appDirectory)
+        guard let data = try? Data(contentsOf: url),
+            let plist = try? PropertyListSerialization.propertyList(from: data, format: nil) as? [String: Any]
+        else {
+            throw RepoError.failure("Info.plist 를 읽을 수 없습니다: \(url.path)")
+        }
+        return plist
+    }
+
+    public static func info(slug: String, in repository: Repository) -> AppInfo {
+        let directory = repository.appDirectory(slug)
+        let plist = try? readInfoPlist(appDirectory: directory)
+        return AppInfo(
+            slug: slug,
+            displayName: plist?["CFBundleDisplayName"] as? String,
+            version: readVersion(appDirectory: directory)
+        )
+    }
+}

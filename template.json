@@ -1,0 +1,14 @@
+{
+  "version": "0.1.0",
+  "managedPaths": [
+    "Package.swift",
+    ".swift-format",
+    "CLAUDE.md",
+    "template.json",
+    "tools/repo",
+    "templates",
+    "decisions/README.md",
+    "decisions/template"
+  ],
+  "managedBlocks": ["AGENTS.md", "ARCHITECTURE.md"]
+}
