@@ -18,10 +18,11 @@
 11. **문서:** 문서를 새로 쓰거나 고칠 때는 문서 작성 가이드북의 `guides/new-project.md` 절차를 따르고, 한국어 문장은 fluent-korean 지침을 따릅니다. 기능이 바뀌면 설명은 `repo help` 나 앱의 CLI 도움말에 두고, 이 파일에는 관례가 바뀔 때만 규칙을 더합니다. (이유: 이 파일에 기능 설명이 쌓이면 코드와 도움말의 내용을 되풀이하게 되고, 한 번 더한 문장은 잘 지워지지 않습니다. [결정 0003](decisions/template/0003-documentation-standard.md))
 12. **블록:** `bricks/` 와 `bricks.lock` 은 `swift run repo brick` 명령으로만 바꾸고, 블록을 고쳐 써야 하면 먼저 `swift run repo brick eject <테넌트>/<앱>` 으로 주인 앱으로 옮깁니다. (이유: 블록은 테넌트의 판에서 받은 코드라서 다음 update 때 교체되고, 고친 내용은 `bricks.lock` 에 기록한 커밋과 어긋납니다. [결정 0005](decisions/template/0005-bricks-from-tenants.md))
 13. **테넌트 등록:** `repo.json` 의 `tenants` 에는 저장소 주인이 지시한 테넌트만 등록합니다. (이유: 어느 테넌트의 코드를 믿고 받을지는 저장소 주인이 책임지는 결정입니다.)
+14. **생성 블록:** README 와 `index.md` 의 `okf:derived` 블록은 손으로 고치지 않고 `swift run repo okf sync` 로 갱신합니다. (이유: 블록 내용은 VERSION 과 Package.swift 에서 만들어지므로, 손으로 고치면 코드와 어긋나고 다음 sync 때 사라집니다. [결정 0007](decisions/template/0007-lean-okf.md))
 
 ## 관련
 
-- 명령과 옵션: `swift run repo help`, 템플릿 업데이트는 `swift run repo help template`, 블록은 `swift run repo help brick`
+- 명령과 옵션: `swift run repo help`, 템플릿 업데이트는 `swift run repo help template`, 블록은 `swift run repo help brick`, 생성 블록은 `swift run repo help okf`
 - 구조와 경계: [ARCHITECTURE.md](ARCHITECTURE.md)
 - 이 파일의 작성 규칙: 규칙마다 이유를 하나 붙이고, 이 저장소의 관례만 적습니다. 출처: https://github.com/dalsoop/stable-agent-documentation-guidebook 의 R-001, R-002
 - 한국어 문장 지침: https://github.com/snflkd/fluent-korean

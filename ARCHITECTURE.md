@@ -17,6 +17,7 @@
 ├── tools/repo/       저장소 도구 repo 의 소스와 테스트
 ├── decisions/        결정 기록. template/ 아래는 템플릿이 내린 결정이다
 ├── Package.swift     루트 패키지. repo 도구만 담는다
+├── index.md          앱과 패키지 README 목록. okf sync 가 만든다
 ├── template.json     템플릿 판과 템플릿이 관리하는 경로
 ├── repo.json         앱 번들 ID 앞부분, 템플릿 출처, 등록한 테넌트
 └── .swift-format     lint 설정
@@ -61,9 +62,10 @@ flowchart TB
 2. Core 에 로직과 테스트를 더합니다.
 3. 같은 기능을 CLI 명령과 GUI 에 연결합니다.
 4. 앱 `README.md` 의 사용법과, 필요하면 CLI 도움말을 고칩니다.
-5. `swift run repo check <slug>` 로 lint, 빌드, 테스트를 확인합니다.
-6. `swift run repo run <slug>` 로 실행해 보고, `.app` 이 필요하면 `swift run repo bundle <slug>` 를 씁니다.
-7. 되돌리기 어려운 결정을 내렸다면 `decisions/` 에 기록을 더합니다.
+5. VERSION 이나 path 의존을 바꿨다면 `swift run repo okf sync` 로 README 와 `index.md` 의 생성 블록을 갱신합니다.
+6. `swift run repo check <slug>` 로 lint, 빌드, 테스트를 확인합니다.
+7. `swift run repo run <slug>` 로 실행해 보고, `.app` 이 필요하면 `swift run repo bundle <slug>` 를 씁니다.
+8. 되돌리기 어려운 결정을 내렸다면 `decisions/` 에 기록을 더합니다.
 
 블록을 받고 새 판으로 바꿀 때는 다음 순서로 작업합니다.
 
@@ -103,7 +105,6 @@ flowchart TB
 ### 예외
 
 - 가이드북은 원본을 영어(Simplified Technical English)로 쓰고 번역본을 따로 둡니다. 이 저장소는 한국어 원본 하나만 둡니다. 이유는 [decisions/template/0003](decisions/template/0003-documentation-standard.md) 에 있습니다.
-- 가이드북 3절의 8단계(코드에서 나오는 목록을 생성 블록으로 만드는 단계)는 적용하지 않습니다. 이 저장소의 문서는 목록을 싣지 않고 목록을 보여 주는 명령을 알려 주기 때문입니다.
 - 9단계(코드가 바뀌면 문서를 다시 읽게 하는 해시 점검)와 10단계(낡은 참조 경고)는 적용하지 않습니다. 특정 코드 파일에 묶인 문서가 없고, 낡은 참조 검사는 상대 링크 점검까지만 합니다.
 
 ### 다시 읽기
@@ -112,7 +113,7 @@ flowchart TB
 
 ### 점검 상태
 
-- `swift run repo doctor` 가 확인하는 것: git 이 보는 파일 가운데 컨텍스트 파일(`AGENTS.md`, `CLAUDE.md`)이 루트에만 있는지, 이 문서의 필수 제목, `README.md`·`ARCHITECTURE.md`·`AGENTS.md` 의 상대 링크, 템플릿 구역 표시의 짝, 앱마다 필수 파일과 VERSION 형식, `apps/`·`packages/` 의 path 의존이 모두 있는 `packages/<이름>` 을 가리키는지(앱끼리 의존하거나 주인 앱이 블록에 의존하면 FAIL), `tenants` 의 이름 형식, `bricks.lock` 과 `bricks/` 가 일치하는지. 블록 앱의 필수 파일은 경고로만 알립니다.
+- `swift run repo doctor` 가 확인하는 것: git 이 보는 파일 가운데 컨텍스트 파일(`AGENTS.md`, `CLAUDE.md`)이 루트에만 있는지, 이 문서의 필수 제목, `README.md`·`ARCHITECTURE.md`·`AGENTS.md`·`index.md` 와 앱·패키지 README 의 상대 링크, 생성 블록(`okf:derived`)이 코드와 같은지와 표시 오류, 루트 항목이 허용 목록 안에 있는지, `apps/`·`packages/` 폴더 이름(kebab-case, 직시어·종류 단어·날짜 숫자 없음), 템플릿 구역 표시의 짝, 앱마다 필수 파일과 VERSION 형식, `apps/`·`packages/` 의 path 의존이 모두 있는 `packages/<이름>` 을 가리키는지(앱끼리 의존하거나 주인 앱이 블록에 의존하면 FAIL), `tenants` 의 이름 형식, `bricks.lock` 과 `bricks/` 가 일치하는지. 블록 앱의 필수 파일은 경고로만 알립니다.
 - `swift run repo lint` 가 확인하는 것: 주인 앱의 Swift 코드 서식과 필수 파일. 블록은 보지 않습니다.
 - 사람이 확인해야 하는 것: 로직이 Core 에만 있는지, GUI 로 되는 일이 CLI 로도 되는지, 새 동작에 Core 테스트가 있는지, 비밀이 커밋되지 않았는지, 외부 패키지에 결정 기록이 있는지, 한 내용이 한 곳에만 있는지, 한국어 문장이 fluent-korean 을 따르는지, 관리 영역과 블록을 직접 고치지 않았는지(확인 방법은 `swift run repo help template` 과 `swift run repo help brick`).
 
