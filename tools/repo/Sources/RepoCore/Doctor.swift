@@ -158,7 +158,7 @@ public enum Doctor {
             return DoctorCheck(name: name, status: .fail, detail: error.localizedDescription)
         }
         let source = (try? repository.loadConfig())?.templateSource ?? ""
-        let sourceText = source.isEmpty ? "비어 있음(발행 전에는 정상)" : source
+        let sourceText = source.isEmpty ? "비어 있음(template 명령에는 --from 이 필요함)" : source
         return DoctorCheck(name: name, status: .ok, detail: "템플릿 판 \(manifest.version), 출처 \(sourceText)")
     }
 
