@@ -66,6 +66,10 @@ public struct RepoTasks {
     /// Creates the app, then formats it so that import order and line breaks match the new names.
     public func newApp(slug: String, displayName: String?) throws -> AppNames {
         try AppNames.validateSlug(slug)
+        let nameProblems = RootChecks.itemNameProblems(slug, kind: "app")
+        guard nameProblems.isEmpty else {
+            throw RepoError.usage("앱 이름으로 쓸 수 없습니다: \(slug) (\(nameProblems.joined(separator: ", ")))")
+        }
         let config = try repository.loadConfig()
         let names = try AppNames(slug: slug, displayName: displayName, bundlePrefix: config.bundlePrefix)
         try AppGenerator.generate(names, in: repository)
@@ -77,6 +81,11 @@ public struct RepoTasks {
             )
         } catch let error as RepoError {
             log("경고: 새 앱의 서식을 맞추지 못했습니다. lint 가 실패할 수 있습니다. (\(error.message))")
+        }
+        let plan = OKF.plan(root: repository.root, only: ["\(repository.appPath(slug))/README.md", OKF.indexFile])
+        try OKF.apply(plan, root: repository.root)
+        for problem in plan.problems {
+            log("경고: 생성 블록을 채우지 못했습니다: \(problem)")
         }
         return names
     }

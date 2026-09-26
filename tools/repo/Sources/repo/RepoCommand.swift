@@ -7,7 +7,7 @@ enum RepoCommand {
         사용법: swift run repo <명령> [인자]
 
         명령:
-          help [template|brick]                  이 도움말. 주제를 주면 템플릿 업데이트나 블록을 설명한다
+          help [template|brick|okf]              이 도움말. 주제를 주면 템플릿 업데이트, 블록, 생성 블록을 설명한다
           doctor [--json]                        환경, 저장소 구조, 문서, 블록을 점검한다. FAIL 이 있으면 exit 1
           new <slug> [--display-name "<이름>"]   templates/macos-app 을 apps/<slug> 로 복사하고 이름을 채운다
           list [--json]                          주인 앱과 블록 앱 목록 (slug, 표시 이름, VERSION, 출처)
@@ -35,6 +35,8 @@ enum RepoCommand {
           brick remove <테넌트>/<앱>             앱을 빼고, 더 이상 쓰이지 않는 패키지를 지운다
           brick eject <테넌트>/<앱>              앱과 패키지를 apps/, packages/ 로 옮겨 주인 앱으로 만든다
                                                  블록에 대한 자세한 설명은 help brick
+          okf sync [--dry-run]                   README 와 index.md 의 생성 블록(okf:derived)을 코드에 맞춘다
+          okf check                              sync 가 바꿀 파일과 표시 오류를 보인다. 있으면 exit 1
 
         <앱> 은 주인 앱이면 <slug>, 블록 앱이면 <테넌트>/<slug> 다(예: notes, acme/notes).
         slug 는 소문자로 시작하고 소문자, 숫자, 하이픈만 쓴다(예: memo-board). <Name> 은 slug 의 PascalCase 다.
@@ -116,6 +118,8 @@ enum RepoCommand {
                 write(templateHelp)
             case "brick":
                 write(brickHelp)
+            case "okf":
+                write(okfHelp)
             default:
                 throw RepoError.usage("알 수 없는 도움말 주제: \(topic ?? "")")
             }
@@ -157,6 +161,8 @@ enum RepoCommand {
             try template(rest)
         case "brick":
             try brick(rest)
+        case "okf":
+            try okf(rest)
         default:
             throw RepoError.usage("알 수 없는 명령: \(command)")
         }

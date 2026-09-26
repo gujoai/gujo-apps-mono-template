@@ -60,6 +60,8 @@ public enum Doctor {
         checks.append(configCheck(repository))
         checks.append(templateCheck(repository))
         checks.append(contentsOf: DocumentChecks.checks(repository))
+        checks.append(okfCheck(repository))
+        checks.append(contentsOf: RootChecks.checks(repository))
         checks.append(contentsOf: appChecks(repository))
         checks.append(DependencyChecks.check(repository))
         checks.append(contentsOf: BrickChecks.checks(repository))
@@ -162,6 +164,20 @@ public enum Doctor {
         let source = (try? repository.loadConfig())?.templateSource ?? ""
         let sourceText = source.isEmpty ? "비어 있음(template 명령에는 --from 이 필요함)" : source
         return DoctorCheck(name: name, status: .ok, detail: "템플릿 판 \(manifest.version), 출처 \(sourceText)")
+    }
+
+    /// The same judgement as `okf check`.
+    static func okfCheck(_ repository: Repository) -> DoctorCheck {
+        let plan = OKF.plan(root: repository.root)
+        let issues = plan.writes.keys.sorted().map { "\($0) 갱신 필요" } + plan.problems
+        guard issues.isEmpty else {
+            return DoctorCheck(
+                name: "okf-blocks",
+                status: .fail,
+                detail: "\(issues.joined(separator: ", ")). swift run repo okf sync 로 고치세요."
+            )
+        }
+        return DoctorCheck(name: "okf-blocks", status: .ok, detail: "생성 블록이 코드와 같음")
     }
 
     public static func appChecks(_ repository: Repository) -> [DoctorCheck] {

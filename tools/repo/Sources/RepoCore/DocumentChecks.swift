@@ -6,7 +6,7 @@ public enum DocumentChecks {
     static let contextFileNames: Set<String> = ["agents.md", "claude.md"]
     /// The app template may hold context files of its own; they are not rules for this repository.
     static let skippedRootDirectory = "templates"
-    static let linkedDocuments = ["README.md", "ARCHITECTURE.md", "AGENTS.md"]
+    static let linkedDocuments = ["README.md", "ARCHITECTURE.md", "AGENTS.md", "index.md"]
     static let architectureFile = "ARCHITECTURE.md"
     static let architectureHeadings = [
         "## 목적", "## 폴더 배치", "## 의존 방향", "## 주요 흐름", "## 경계", "## 변경 규칙", "### 독자", "### 다시 읽기",
@@ -55,12 +55,14 @@ public enum DocumentChecks {
     static func linkCheck(_ repository: Repository) -> DoctorCheck {
         var broken: [String] = []
         var missing: [String] = []
-        for document in linkedDocuments {
+        let readmes = OKF.documents(in: repository.root).map(\.0).filter { $0 != OKF.indexFile }
+        for document in linkedDocuments + readmes {
             guard let text = read(document, in: repository) else {
                 missing.append(document)
                 continue
             }
-            broken += brokenLinks(in: text, relativeTo: repository.root).map { "\(document) → \($0)" }
+            let directory = repository.root.appending(path: document).deletingLastPathComponent()
+            broken += brokenLinks(in: text, relativeTo: directory).map { "\(document) → \($0)" }
         }
         guard broken.isEmpty else {
             return DoctorCheck(
@@ -79,7 +81,7 @@ public enum DocumentChecks {
         return DoctorCheck(
             name: "doc-links",
             status: .ok,
-            detail: "\(linkedDocuments.joined(separator: ", ")) 의 상대 링크가 모두 있음"
+            detail: "루트 문서와 앱·패키지 README 의 상대 링크가 모두 있음"
         )
     }
 

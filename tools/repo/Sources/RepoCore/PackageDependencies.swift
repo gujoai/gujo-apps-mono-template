@@ -5,6 +5,8 @@ import Foundation
 public enum PackageDependencies {
     public struct Declared: Equatable, Sendable {
         public var paths: [String] = []
+        /// The `traits:` of each path dependency, in the same order as `paths`.
+        public var traits: [[String]] = []
         public var urls: [String] = []
     }
 
@@ -16,7 +18,8 @@ public enum PackageDependencies {
         while let start = rest.range(of: ".package(") {
             let call = argumentList(startingAt: start.upperBound, in: rest)
             if let path = stringArgument("path", in: call) {
-                declared.paths.append(path)
+                declared.paths.append(path.hasSuffix("/") ? String(path.dropLast()) : path)
+                declared.traits.append(traits(in: call))
             } else if let url = stringArgument("url", in: call) {
                 declared.urls.append(url)
             }
@@ -61,6 +64,16 @@ public enum PackageDependencies {
 
     /// The package name when `path`, relative to `directory`, resolves to `packages/<name>`.
     static func packageName(resolving path: String, from directory: String) -> String? {
+        guard let components = resolve(path, from: directory), components.count == 2, components[0] == "packages",
+            !components[1].hasPrefix(".")
+        else {
+            return nil
+        }
+        return components[1]
+    }
+
+    /// The components of `path` taken from `directory`, both relative to the root, or nil outside the root.
+    static func resolve(_ path: String, from directory: String) -> [String]? {
         guard !path.hasPrefix("/") else {
             return nil
         }
@@ -78,10 +91,19 @@ public enum PackageDependencies {
                 components.append(String(component))
             }
         }
-        guard components.count == 2, components[0] == "packages", !components[1].hasPrefix(".") else {
-            return nil
+        return components
+    }
+
+    /// The string literals inside the brackets after `traits:`, if any.
+    private static func traits(in arguments: Substring) -> [String] {
+        guard let label = arguments.range(of: "traits:"),
+            let open = arguments[label.upperBound...].firstIndex(of: "["),
+            let close = arguments[open...].firstIndex(of: "]")
+        else {
+            return []
         }
-        return components[1]
+        return arguments[open..<close].split(separator: "\"", omittingEmptySubsequences: false).enumerated()
+            .filter { !$0.offset.isMultiple(of: 2) }.map { String($0.element) }
     }
 
     /// The text between `.package(` and its closing parenthesis.

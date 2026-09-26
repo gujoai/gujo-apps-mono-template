@@ -32,6 +32,7 @@ struct DocumentChecksTests {
             to: root.appending(path: "AGENTS.md")
         )
         try TestSupport.write("[규칙](AGENTS.md), [결정](decisions/)\n", to: root.appending(path: "README.md"))
+        try TestSupport.write("# 목록\n", to: root.appending(path: "index.md"))
         try FileManager.default.createDirectory(
             at: root.appending(path: "decisions", directoryHint: .isDirectory),
             withIntermediateDirectories: true
