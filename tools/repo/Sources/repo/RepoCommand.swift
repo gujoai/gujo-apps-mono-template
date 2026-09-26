@@ -7,24 +7,36 @@ enum RepoCommand {
         사용법: swift run repo <명령> [인자]
 
         명령:
-          help [template]                        이 도움말. template 을 주면 템플릿 업데이트를 설명한다
-          doctor [--json]                        환경, 저장소 구조, 문서를 점검한다. FAIL 이 있으면 exit 1
+          help [template|brick]                  이 도움말. 주제를 주면 템플릿 업데이트나 블록을 설명한다
+          doctor [--json]                        환경, 저장소 구조, 문서, 블록을 점검한다. FAIL 이 있으면 exit 1
           new <slug> [--display-name "<이름>"]   templates/macos-app 을 apps/<slug> 로 복사하고 이름을 채운다
-          list [--json]                          앱 목록 (slug, 표시 이름, VERSION)
-          build [<slug>...]                      앱마다 swift build. 인자가 없으면 모든 앱. 첫 실패에서 멈춘다
-          test [<slug>...]                       앱마다 swift test. 규칙은 build 와 같다
-          lint [<slug>...]                       swift format lint --strict 와 앱 구조 점검. 인자가 없으면 모든 앱과 tools
-          check [<slug>...]                      lint, build, test 를 이 순서로 실행한다. 하나라도 실패하면 실패
-          run <slug>                             GUI 를 실행한다. 창이 앞으로 오고, 창을 닫으면 앱이 끝난다
-          bundle <slug> [--open]                 릴리스 빌드로 apps/<slug>/.build/bundle/<표시 이름>.app 을 만든다
+          list [--json]                          주인 앱과 블록 앱 목록 (slug, 표시 이름, VERSION, 출처)
+          build [<앱>...]                        앱마다 swift build. 인자가 없으면 주인 앱과 블록 앱 모두. 첫 실패에서 멈춘다
+          test [<앱>...]                         앱마다 swift test. 규칙은 build 와 같다
+          lint [<앱>...]                         swift format lint --strict 와 앱 구조 점검. 주인 앱만 본다
+                                                 인자가 없으면 모든 주인 앱과 tools
+          check [<앱>...]                        lint, build, test 를 이 순서로 실행한다. 하나라도 실패하면 실패
+          run <앱>                               GUI 를 실행한다. 창이 앞으로 오고, 창을 닫으면 앱이 끝난다
+          bundle <앱> [--open]                   릴리스 빌드로 <앱 폴더>/.build/bundle/<표시 이름>.app 을 만든다
                                                  ad-hoc 서명이므로 이 Mac 에서 쓰는 용도다. --open 이면 바로 연다
           template status [--json] [--from <출처>]
                                                  현재 템플릿 판, 출처, 출처에서 받을 수 있는 가장 새 판
           template update [--to <x.y.z>] [--from <출처>] [--dry-run]
                                                  관리 영역을 그 판으로 교체한다. 자세한 설명은 help template
+          brick list [--json]                    받은 블록의 테넌트, 판, 앱, 패키지
+          brick available <테넌트> [--edition <x.y.z>] [--json]
+                                                 그 테넌트 판의 앱 목록. 기본은 가장 새 판
+          brick add <테넌트>/<앱> [--edition <x.y.z>]
+                                                 앱과 그 앱이 쓰는 테넌트 패키지를 bricks/<테넌트>/ 로 받는다
+          brick update <테넌트> [--edition <x.y.z>] [--dry-run]
+                                                 그 테넌트에서 받은 앱 전부를 그 판으로 교체한다. 기본은 가장 새 판
+          brick remove <테넌트>/<앱>             앱을 빼고, 더 이상 쓰이지 않는 패키지를 지운다
+          brick eject <테넌트>/<앱>              앱과 패키지를 apps/, packages/ 로 옮겨 주인 앱으로 만든다
+                                                 블록에 대한 자세한 설명은 help brick
 
+        <앱> 은 주인 앱이면 <slug>, 블록 앱이면 <테넌트>/<slug> 다(예: notes, acme/notes).
         slug 는 소문자로 시작하고 소문자, 숫자, 하이픈만 쓴다(예: memo-board). <Name> 은 slug 의 PascalCase 다.
-        앱의 CLI 명령은 swift run repo build <slug> 뒤에 apps/<slug>/.build/debug/<slug> help 로 확인한다.
+        앱의 CLI 명령은 swift run repo build <앱> 뒤에 <앱 폴더>/.build/debug/<slug> help 로 확인한다.
         lint 의 서식 오류는 swift format format --in-place --configuration .swift-format <파일> 로 고친다.
         종료 코드: 성공 0, 실패 1(하위 명령이 실패하면 그 코드), 사용법 오류 64
         """
@@ -81,6 +93,8 @@ enum RepoCommand {
                 write(usage)
             case "template":
                 write(templateHelp)
+            case "brick":
+                write(brickHelp)
             default:
                 throw RepoError.usage("알 수 없는 도움말 주제: \(topic ?? "")")
             }
@@ -120,6 +134,8 @@ enum RepoCommand {
             }
         case "template":
             try template(rest)
+        case "brick":
+            try brick(rest)
         default:
             throw RepoError.usage("알 수 없는 명령: \(command)")
         }
@@ -261,7 +277,8 @@ enum RepoCommand {
 
     static func list(json: Bool) throws {
         let repository = try Repository.locateOrThrow(from: currentDirectory())
-        let apps = try repository.appSlugs().map { AppStructure.info(slug: $0, in: repository) }
+        let refs = try repository.ownerApps() + repository.brickApps()
+        let apps = refs.map { AppStructure.info($0, in: repository) }
         if json {
             write(try encodeJSON(apps))
             return
@@ -270,10 +287,17 @@ enum RepoCommand {
             write("앱이 없습니다. swift run repo new <slug> 로 만드세요.")
             return
         }
-        let width = apps.map(\.slug.count).max() ?? 0
-        for app in apps {
-            let slug = app.slug.padding(toLength: width, withPad: " ", startingAt: 0)
-            write("\(slug)  \(app.version ?? "-")  \(app.displayName ?? "-")")
+        let width = refs.map(\.description.count).max() ?? 0
+        for (title, isBrick) in [("주인 앱", false), ("블록 앱", true)] {
+            let rows = zip(refs, apps).filter { ($0.0.tenant != nil) == isBrick }
+            guard !rows.isEmpty else {
+                continue
+            }
+            write(title)
+            for (ref, app) in rows {
+                let name = ref.description.padding(toLength: width, withPad: " ", startingAt: 0)
+                write("  \(name)  \(app.version ?? "-")  \(app.displayName ?? "-")")
+            }
         }
     }
 

@@ -11,16 +11,26 @@ public struct RepoTasks {
         self.log = log
     }
 
-    public func build(_ slugs: [String]) throws {
-        try swiftForEachApp("build", slugs)
+    /// `names` are `<slug>` for the owner's apps and `<tenant>/<slug>` for bricks. None means every app.
+    public func build(_ names: [String]) throws {
+        try swiftForEachApp("build", names)
     }
 
-    public func test(_ slugs: [String]) throws {
-        try swiftForEachApp("test", slugs)
+    public func test(_ names: [String]) throws {
+        try swiftForEachApp("test", names)
     }
 
-    /// swift-format on the selected apps (plus the repo tool when no slug is given), then the structure check.
-    public func lint(_ slugs: [String]) throws {
+    /// swift-format on the selected owner's apps (plus the repo tool when no name is given), then the
+    /// structure check. Bricks are the tenant's code, so they are not linted.
+    public func lint(_ names: [String]) throws {
+        let selected = try repository.selectAppRefs(names)
+        for brick in selected where brick.tenant != nil && !names.isEmpty {
+            log("블록은 lint 하지 않습니다: \(brick)")
+        }
+        let slugs = names.isEmpty ? [] : selected.filter { $0.tenant == nil }.map(\.slug)
+        if !names.isEmpty && slugs.isEmpty {
+            return
+        }
         let apps = try repository.selectApps(slugs)
         let files =
             (slugs.isEmpty ? SourceFiles.tools(in: repository) : [])
@@ -41,15 +51,15 @@ public struct RepoTasks {
         }
     }
 
-    public func check(_ slugs: [String]) throws {
-        try lint(slugs)
-        try build(slugs)
-        try test(slugs)
+    public func check(_ names: [String]) throws {
+        try lint(names)
+        try build(names)
+        try test(names)
     }
 
-    public func run(_ slug: String) throws {
-        _ = try repository.selectApps([slug])
-        try execute(["swift", "run", "--package-path", repository.appPath(slug), "\(AppNames.pascalCase(slug))App"])
+    public func run(_ name: String) throws {
+        let app = try repository.selectAppRefs([name])[0]
+        try execute(["swift", "run", "--package-path", app.path, "\(AppNames.pascalCase(app.slug))App"])
     }
 
     /// Creates the app, then formats it so that import order and line breaks match the new names.
@@ -71,11 +81,11 @@ public struct RepoTasks {
     }
 
     /// Builds the GUI in release mode and wraps it in an ad-hoc signed `.app`. Returns the `.app` URL.
-    public func bundle(_ slug: String) throws -> URL {
-        _ = try repository.selectApps([slug])
-        let appDirectory = repository.appDirectory(slug)
-        let path = repository.appPath(slug)
-        let product = "\(AppNames.pascalCase(slug))App"
+    public func bundle(_ name: String) throws -> URL {
+        let selected = try repository.selectAppRefs([name])[0]
+        let appDirectory = repository.directory(of: selected)
+        let path = selected.path
+        let product = "\(AppNames.pascalCase(selected.slug))App"
         guard let version = AppStructure.readVersion(appDirectory: appDirectory) else {
             throw RepoError.failure("\(path)/VERSION 이 없거나 x.y.z 형식이 아닙니다.")
         }
@@ -120,14 +130,14 @@ public struct RepoTasks {
         try execute(["open", url.path])
     }
 
-    private func swiftForEachApp(_ subcommand: String, _ slugs: [String]) throws {
-        let apps = try repository.selectApps(slugs)
+    private func swiftForEachApp(_ subcommand: String, _ names: [String]) throws {
+        let apps = try repository.selectAppRefs(names)
         guard !apps.isEmpty else {
             log("앱이 없습니다. swift run repo new <slug> 로 만드세요.")
             return
         }
-        for slug in apps {
-            try execute(["swift", subcommand, "--package-path", repository.appPath(slug)])
+        for app in apps {
+            try execute(["swift", subcommand, "--package-path", app.path])
         }
     }
 

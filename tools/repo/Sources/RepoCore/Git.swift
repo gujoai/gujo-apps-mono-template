@@ -23,6 +23,26 @@ enum Git {
             && result?.standardOutput.trimmingCharacters(in: .whitespacesAndNewlines) == "true"
     }
 
+    /// Throws, before anything is written, unless `directory` is a git work tree whose `paths` have no
+    /// uncommitted changes. `area` names those paths in the message.
+    static func requireCommitted(_ paths: [String], in directory: URL, area: String) throws {
+        guard isWorkTree(directory) else {
+            throw RepoError.failure("저장소 루트가 git 작업 트리가 아닙니다. 바뀌기 전과 후를 비교할 수 있도록 git 저장소에서 실행하세요.")
+        }
+        let uncommitted = try changedPaths(paths, in: directory)
+        guard uncommitted.isEmpty else {
+            throw RepoError.failure(
+                "\(area)에 커밋하지 않은 변경이 있습니다. 커밋하거나 되돌린 뒤 다시 실행하세요:\n"
+                    + uncommitted.map { "  \($0)" }.joined(separator: "\n")
+            )
+        }
+    }
+
+    /// The commit a checkout is at.
+    static func headCommit(of directory: URL) throws -> String {
+        try output(["rev-parse", "HEAD"], in: directory).trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
     /// Paths with uncommitted changes (including untracked files) under the given paths.
     static func changedPaths(_ paths: [String], in directory: URL) throws -> [String] {
         let output = try output(

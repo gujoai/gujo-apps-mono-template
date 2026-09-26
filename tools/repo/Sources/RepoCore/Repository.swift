@@ -6,10 +6,13 @@ public struct RepoConfig: Codable, Equatable, Sendable {
     public var bundlePrefix: String
     /// Git URL or local path of the template this repository updates from. Empty until the template is published.
     public var templateSource: String?
+    /// Tenants whose bricks this repository may take, by name: git URL or local path. Optional; absent means none.
+    public var tenants: [String: String]?
 
-    public init(bundlePrefix: String, templateSource: String? = nil) {
+    public init(bundlePrefix: String, templateSource: String? = nil, tenants: [String: String]? = nil) {
         self.bundlePrefix = bundlePrefix
         self.templateSource = templateSource
+        self.tenants = tenants
     }
 
     /// Reverse-DNS form such as `com.mycompany`: letters, digits, hyphens, and dots between parts.
@@ -116,5 +119,43 @@ public struct Repository: Sendable {
             }
         }
         return slugs
+    }
+}
+
+extension Repository {
+    public var bricksDirectory: URL {
+        root.appending(path: Tenants.directory, directoryHint: .isDirectory)
+    }
+
+    public func directory(of app: AppRef) -> URL {
+        root.appending(path: app.path, directoryHint: .isDirectory)
+    }
+
+    public func ownerApps() throws -> [AppRef] {
+        try appSlugs().map { AppRef(slug: $0) }
+    }
+
+    /// Brick apps found under `bricks/<tenant>/apps/`, whatever `bricks.lock` says.
+    public func brickApps() -> [AppRef] {
+        FileTree.subdirectories(of: bricksDirectory).filter(Tenants.isValidName).flatMap { tenant in
+            FileTree.subdirectories(of: bricksDirectory.appending(path: "\(tenant)/apps"))
+                .filter(AppNames.isValidSlug)
+                .map { AppRef(tenant: tenant, slug: $0) }
+        }
+    }
+
+    /// The apps a command works on: the given `<slug>` or `<tenant>/<slug>` names, or, when none are given,
+    /// every owner's app and every brick app.
+    public func selectAppRefs(_ names: [String]) throws -> [AppRef] {
+        guard !names.isEmpty else {
+            return try ownerApps() + brickApps()
+        }
+        return try names.map { name in
+            let app = try AppRef.parse(name)
+            guard FileManager.default.fileExists(atPath: directory(of: app).path) else {
+                throw RepoError.failure("앱이 없습니다: \(app.path). `swift run repo list` 로 목록을 보세요.")
+            }
+            return app
+        }
     }
 }

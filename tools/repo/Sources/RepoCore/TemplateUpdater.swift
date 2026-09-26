@@ -34,9 +34,6 @@ public struct TemplatePlan: Sendable {
 /// Nothing is merged: managed paths are replaced whole, and in managed-block files only the text
 /// between the markers is replaced.
 public enum TemplateUpdater {
-    /// Ignored build and Finder files are not compared, so they do not count as local changes.
-    static let ignoredNames: Set<String> = [".DS_Store", ".build", ".swiftpm"]
-
     /// Everything an update may touch: the managed paths of both editions and the managed-block files.
     public static func targets(current: TemplateManifest, target: TemplateManifest) -> [String] {
         var seen = Set<String>()
@@ -61,17 +58,8 @@ public enum TemplateUpdater {
             throw RepoError.failure("받아 온 판: \(error.message)")
         }
 
-        guard Git.isWorkTree(root) else {
-            throw RepoError.failure("저장소 루트가 git 작업 트리가 아닙니다. 업데이트 전후를 비교할 수 있도록 git 저장소에서 실행하세요.")
-        }
-        let uncommitted = try Git.changedPaths(targets(current: current, target: target), in: root)
-        guard uncommitted.isEmpty else {
-            throw RepoError.failure(
-                "관리 영역에 커밋하지 않은 변경이 있습니다. 커밋하거나 되돌린 뒤 다시 실행하세요:\n"
-                    + uncommitted.map { "  \($0)" }.joined(separator: "\n")
-            )
-        }
-        for path in target.managedPaths where !itemExists(templateTree.appending(path: path)) {
+        try Git.requireCommitted(targets(current: current, target: target), in: root, area: "관리 영역")
+        for path in target.managedPaths where !FileTree.itemExists(templateTree.appending(path: path)) {
             throw RepoError.failure("받아 온 판에 managedPaths 의 '\(path)' 가 없습니다.")
         }
 
@@ -94,9 +82,9 @@ public enum TemplateUpdater {
 
         var pathsToReplace: [String] = []
         for path in target.managedPaths {
-            let pathChanges = try compare(
-                snapshot(path, in: root),
-                snapshot(path, in: templateTree)
+            let pathChanges = try FileTree.compare(
+                FileTree.snapshot(path, in: root, skip: FileTree.buildOutput.contains),
+                FileTree.snapshot(path, in: templateTree, skip: FileTree.buildOutput.contains)
             )
             if !pathChanges.isEmpty {
                 pathsToReplace.append(path)
@@ -104,9 +92,12 @@ public enum TemplateUpdater {
             }
         }
         var pathsToRemove: [String] = []
-        for path in removedPaths(current: current, target: target) where itemExists(root.appending(path: path)) {
+        for path in removedPaths(current: current, target: target)
+        where FileTree.itemExists(root.appending(path: path)) {
             pathsToRemove.append(path)
-            changes += try snapshot(path, in: root).keys.map { TemplateChange(.deleted, $0) }
+            changes += try FileTree.snapshot(path, in: root, skip: FileTree.buildOutput.contains).keys.map {
+                TemplateChange(.deleted, $0)
+            }
         }
 
         return TemplatePlan(
@@ -129,14 +120,14 @@ public enum TemplateUpdater {
             }
             for path in plan.pathsToReplace {
                 let destination = root.appending(path: path)
-                if itemExists(destination) {
+                if FileTree.itemExists(destination) {
                     try fileManager.removeItem(at: destination)
                 }
                 try fileManager.createDirectory(
                     at: destination.deletingLastPathComponent(),
                     withIntermediateDirectories: true
                 )
-                try copyItem(templateTree.appending(path: path), to: destination)
+                try FileTree.copy(templateTree.appending(path: path), to: destination) { _ in false }
             }
             for (file, text) in plan.blockContents.sorted(by: { $0.key < $1.key }) {
                 try Data(text.utf8).write(to: root.appending(path: file), options: .atomic)
@@ -149,71 +140,4 @@ public enum TemplateUpdater {
         }
     }
 
-    enum Entry: Equatable {
-        case file(Data)
-        case link(String)
-    }
-
-    /// Files and symbolic links at or under `path`, keyed by their path relative to `root`.
-    static func snapshot(_ path: String, in root: URL) throws -> [String: Entry] {
-        let fileManager = FileManager.default
-        let url = root.appending(path: path)
-        guard let attributes = try? fileManager.attributesOfItem(atPath: url.path) else {
-            return [:]
-        }
-        switch attributes[.type] as? FileAttributeType {
-        case .typeSymbolicLink:
-            return [path: .link(try fileManager.destinationOfSymbolicLink(atPath: url.path))]
-        case .typeDirectory:
-            var entries: [String: Entry] = [:]
-            for name in try fileManager.contentsOfDirectory(atPath: url.path) where !ignoredNames.contains(name) {
-                entries.merge(try snapshot("\(path)/\(name)", in: root)) { _, new in new }
-            }
-            return entries
-        default:
-            return [path: .file(try Data(contentsOf: url))]
-        }
-    }
-
-    static func compare(_ current: [String: Entry], _ target: [String: Entry]) -> [TemplateChange] {
-        var changes: [TemplateChange] = []
-        for (path, entry) in target {
-            if let existing = current[path] {
-                if existing != entry {
-                    changes.append(TemplateChange(.modified, path))
-                }
-            } else {
-                changes.append(TemplateChange(.added, path))
-            }
-        }
-        for path in current.keys where target[path] == nil {
-            changes.append(TemplateChange(.deleted, path))
-        }
-        return changes
-    }
-
-    /// Like `FileManager.fileExists`, but a symbolic link counts even when its target is missing.
-    static func itemExists(_ url: URL) -> Bool {
-        (try? FileManager.default.attributesOfItem(atPath: url.path)) != nil
-    }
-
-    /// Copies a file or directory tree, recreating symbolic links as links.
-    static func copyItem(_ source: URL, to destination: URL) throws {
-        let fileManager = FileManager.default
-        let attributes = try fileManager.attributesOfItem(atPath: source.path)
-        switch attributes[.type] as? FileAttributeType {
-        case .typeSymbolicLink:
-            try fileManager.createSymbolicLink(
-                atPath: destination.path,
-                withDestinationPath: fileManager.destinationOfSymbolicLink(atPath: source.path)
-            )
-        case .typeDirectory:
-            try fileManager.createDirectory(at: destination, withIntermediateDirectories: true)
-            for name in try fileManager.contentsOfDirectory(atPath: source.path) {
-                try copyItem(source.appending(path: name), to: destination.appending(path: name))
-            }
-        default:
-            try fileManager.copyItem(at: source, to: destination)
-        }
-    }
 }

@@ -4,17 +4,21 @@ public struct AppInfo: Encodable, Equatable, Sendable {
     public let slug: String
     public let displayName: String?
     public let version: String?
+    /// `owner` for the owner's app, otherwise the tenant the brick came from.
+    public let origin: String
 
     enum CodingKeys: String, CodingKey {
         case slug
         case displayName
         case version
+        case origin
     }
 
-    public init(slug: String, displayName: String?, version: String?) {
+    public init(slug: String, displayName: String?, version: String?, origin: String = AppRef.ownerOrigin) {
         self.slug = slug
         self.displayName = displayName
         self.version = version
+        self.origin = origin
     }
 
     // Missing values are written as null so every entry has the same keys.
@@ -23,12 +27,14 @@ public struct AppInfo: Encodable, Equatable, Sendable {
         try container.encode(slug, forKey: .slug)
         try container.encode(displayName, forKey: .displayName)
         try container.encode(version, forKey: .version)
+        try container.encode(origin, forKey: .origin)
     }
 }
 
 /// What every app under `apps/` must contain. `doctor` and `lint` share this check.
 public enum AppStructure {
-    public static func check(appDirectory: URL) -> DoctorCheck {
+    /// `name` defaults to `app <folder name>`.
+    public static func check(appDirectory: URL, name: String? = nil) -> DoctorCheck {
         let slug = appDirectory.lastPathComponent
         let fileManager = FileManager.default
         var problems: [String] = []
@@ -53,7 +59,7 @@ public enum AppStructure {
         if !fileManager.fileExists(atPath: testsPath, isDirectory: &isDirectory) || !isDirectory.boolValue {
             problems.append("Tests/ 없음")
         }
-        let name = "app \(slug)"
+        let name = name ?? "app \(slug)"
         guard problems.isEmpty else {
             return DoctorCheck(name: name, status: .fail, detail: problems.joined(separator: ", "))
         }
@@ -88,13 +94,14 @@ public enum AppStructure {
         return plist
     }
 
-    public static func info(slug: String, in repository: Repository) -> AppInfo {
-        let directory = repository.appDirectory(slug)
+    public static func info(_ app: AppRef, in repository: Repository, origin: String? = nil) -> AppInfo {
+        let directory = repository.directory(of: app)
         let plist = try? readInfoPlist(appDirectory: directory)
         return AppInfo(
-            slug: slug,
+            slug: app.slug,
             displayName: plist?["CFBundleDisplayName"] as? String,
-            version: readVersion(appDirectory: directory)
+            version: readVersion(appDirectory: directory),
+            origin: origin ?? app.origin
         )
     }
 }

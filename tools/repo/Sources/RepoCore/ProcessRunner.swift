@@ -70,20 +70,22 @@ public enum ProcessRunner {
     }
 }
 
+/// Reads a pipe to the end on its own thread. A dedicated thread, not a dispatch queue, so the read can
+/// start even when every pool thread is blocked in `wait()` (as when many tests capture output at once).
 private final class PipeReader: @unchecked Sendable {
-    private let group = DispatchGroup()
+    private let done = DispatchSemaphore(value: 0)
     private var data = Data()
 
     init(_ handle: FileHandle) {
-        group.enter()
-        DispatchQueue.global().async {
-            self.data = handle.readDataToEndOfFile()
-            self.group.leave()
+        let thread = Thread { [self] in
+            data = handle.readDataToEndOfFile()
+            done.signal()
         }
+        thread.start()
     }
 
     func wait() -> Data {
-        group.wait()
+        done.wait()
         return data
     }
 }
