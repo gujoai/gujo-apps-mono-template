@@ -1,4 +1,5 @@
 {
   "bundlePrefix": "com.example",
-  "templateSource": "https://github.com/gujoai/gujo-apps-mono-template.git"
+  "templateSource": "https://github.com/gujoai/gujo-apps-mono-template.git",
+  "tenants": {}
 }
