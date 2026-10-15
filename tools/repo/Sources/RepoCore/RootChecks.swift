@@ -7,6 +7,7 @@ public enum RootChecks {
         "Package.resolved", "repo.json", "template.json", "bricks.lock", ".gitignore", ".gitattributes",
         ".git-blame-ignore-revs", ".swift-format", ".editorconfig", ".gitlab-ci.yml",
         "apps", "packages", "bricks", "templates", "tools", "decisions", ".github", "config",
+        ".gitlab", "docs", ".dryforge",
     ]
     static let deicticWords: Set<String> = [
         "my", "mine", "temp", "tmp", "new", "old", "final", "latest", "current", "misc", "wip",
