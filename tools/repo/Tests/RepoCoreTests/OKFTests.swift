@@ -129,14 +129,17 @@ struct OKFTests {
         #expect(updated?.hasSuffix("\n<!-- /okf:derived -->\n") == true)
     }
 
-    @Test(arguments: [
+    /// Typed apart from @Test so the macro expansion type-checks in reasonable time.
+    static let markerErrorCases: [(String, String)] = [
         (openA + "\n<!-- okf:derived id=b source=deps -->\n" + close, "안에"),
         (openA + "\n" + close + "\n" + openA + "\n" + close, "겹침"),
         (openA + "\nx", "닫히지"),
         ("x\n" + close, "짝 없는"),
         ("<!-- okf:derived id=a -->\n" + close, "source"),
         ("<!-- okf:derived id=a source=nothing -->\n" + close, "모르는"),
-    ])
+    ]
+
+    @Test(arguments: markerErrorCases)
     func reportsMarkerErrors(_ text: String, _ expected: String) throws {
         let root = try makeRoot()
         defer { try? FileManager.default.removeItem(at: root) }
